@@ -1,0 +1,615 @@
+---
+title: "Multiple Regression Case"
+author: "Ritika Garg"
+date: "2025-10-20"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+## Data Setup
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(car)
+library(knitr)
+```
+
+```{r}
+dataset <- read.csv("MarketPlace_Sales_Data.csv")
+dataset <- dataset[, 1:11]
+head(dataset, 10)
+```
+
+---
+
+## PART 1
+
+### Question 1.1: Dummy variables for Season
+
+```{r}
+dataset$Season_Spring <- ifelse(dataset$Season == "Spring", 1, 0)   
+dataset$Season_Summer <- ifelse(dataset$Season == "Summer", 1, 0)
+dataset$Season_Fall <- ifelse(dataset$Season == "Fall", 1, 0)
+```
+
+**Interpretation:** Choosing 'Winter' as the reference category is a strategic decision. Winter often represents the peak sales season for an e-commerce company, likely driven by holiday shopping. By setting this peak season as the reference, the model's coefficients for Season_Spring, Season_Summer, and Season_Fall will directly measure sales performance relative to the company's most critical period, making the seasonal impact immediately clear.
+
+### Question 1.2: Dummy variables for Category
+
+```{r}
+dataset$Product_Type_Home <- ifelse(dataset$Product_Type == "Home", 1, 0)   
+dataset$Product_Type_Fashion <- ifelse(dataset$Product_Type == "Fashion", 1, 0)
+```
+
+**Interpretation:** Selecting 'Electronics' as the reference category is a strategic decision. Electronics are often high-ticket, high-volume products that can serve as a primary driver of revenue and website traffic. By using Electronics as the baseline, the coefficients for Product_Type_Home and Product_Type_Fashion will directly measure how their sales performance compares against this core, high-revenue category. This allows MarketPlace to quickly assess if other categories are underperforming or overperforming relative to this key business driver.
+
+### Question 1.3: Build Model 1 using ALL predictors
+
+```{r}
+Model1 <- lm(Sales ~ Ad_Spend + Email_Campaigns + Website_Traffic + 
+                     Avg_Rating + Discount_Pct + Competitor_Price_Index + 
+                     Inventory_Level + Social_Media_Engagement + 
+                     Season_Spring + Season_Summer + Season_Fall + 
+                     Product_Type_Home + Product_Type_Fashion, 
+                     data = dataset)
+summary(Model1)
+
+coef_table <- summary(Model1)$coefficients
+kable(coef_table, 
+      digits = 3, 
+      caption = "Model 1: Full Regression Model of Monthly Sales",
+      col.names = c("Estimate", "Std. Error", "t-value", "p-value"))
+```
+
+---
+
+## PART 2 
+
+### Question 2.1: Global F-Test Hypotheses
+
+* **Null Hypothesis ($H_0$): $\beta_1 = \beta_2 = \dots = \beta_{13} = 0$**
+    * The model has no explanatory power. None of the 13 predictor variables (advertising spend, website traffic, season, etc.) have a linear relationship with sales.
+
+* **Alternative Hypothesis ($H_1$): At least one $\beta_j \neq 0$ (for $j=1, \dots, 13$)**
+    * At least one of the predictor variables in the model has a significant linear relationship with sales.
+
+\n
+* **Business Interpretation:**
+    * In business terms, the null hypothesis ($H_0$) suggests that the entire set of metrics Tracy's team has collected is useless for predicting monthly sales. 
+    * The alternative hypothesis ($H_1$) posits that the team's data-driven model is valid and that at least one of the tracked factors is a meaningful driver of sales performance.
+
+### Question 2.2: Conduct Global F-test for Model 1
+
+```{r}
+
+dat_used <- model.frame(Model1)
+
+# Components for the Global F-test
+n  <- nrow(dat_used)             # Total number of observations used in the model
+k  <- 13                         # Number of predictors in the model
+y  <- dat_used$Sales             # The Sales values corresponding to the NA-free rows
+
+# Sum of Squares
+sst <- sum( (y - mean(y))^2 )         # Total Sum of Squares (based on used data)
+sse <- sum( residuals(Model1)^2 ) # Error/Residual Sum of Squares
+ssr <- sst - sse                      # Regression Sum of Squares (SST - SSE)
+
+# Degrees of Freedom
+df_reg <- k                             # k
+df_res <- n - k - 1                     # n - k - 1
+df_tot <- n - 1                         # n - 1
+
+# Mean Squares and F-statistic
+msr <- ssr / df_reg
+mse <- sse / df_res
+Fval <- msr / mse
+pval <- pf(Fval, df_reg, df_res, lower.tail = FALSE) 
+
+kable(
+  data.frame(
+    Source  = c("Regression","Residuals","Total"),
+    Df      = c(df_reg, df_res, df_tot),
+    `Sum Sq`= c(ssr, sse, sst),
+    `Mean Sq`= c(msr, mse, NA),
+    `F value`= c(Fval, NA, NA),
+    `Pr(>F)`= c(pval, NA, NA)
+  ),
+  digits = 4,
+  caption = "ANOVA Table with Single Overall F (Multiple Regression Model)"
+)
+qf(0.95, df1 = 13, df2 = 3585)
+```
+
+### Question 2.3: Global F-Test Conclusion
+
+* **Statistical Conclusion:** The calculated F-statistic of 7218.24 is vastly greater than the critical F-value of 1.72. Correspondingly, the p-value is essentially zero, which is far less than the significance level of $\alpha = 0.05$. Therefore, we **reject the null hypothesis ($H_0$)**.
+
+* **Interpretation for Tracy's Team:** The rejection of the null hypothesis is a crucial first step. It provides strong statistical evidence that the overall regression model is valid and that the chosen set of predictors, when taken together, has a highly significant ability to explain the variation in monthly sales.
+
+* **Business Implications:** This finding is a major validation of the analytics team's efforts. It confirms for the executive team that the factors being tracked, from marketing spend to operational metrics, are indeed related to revenue performance. This result provides Tracy with a green light to proceed with the analysis, confident that the model is a reliable tool for identifying key sales drivers and informing strategic decisions, such as the $20 million marketing budget allocation.
+
+---
+
+## PART 3
+
+### Question 3.1: Comprehensive coefficient table for Model 1
+
+```{r}
+summary_m1 <- summary(Model1)
+
+coef_table <- summary_m1$coefficients
+
+p_values <- coef_table[, 4]
+significance_indicator <- ifelse(p_values < 0.05, "Yes", "No")
+
+coef_report_df <- data.frame(
+Variable = rownames(coef_table),
+Estimate = coef_table[, 1],
+Std_Error = coef_table[, 2],
+t_statistic = coef_table[, 3],
+P_value = p_values,
+Significant_at_0_05 = significance_indicator,
+row.names = NULL # Remove default R row names
+)
+
+kable(
+coef_report_df,
+digits = 4,
+caption = "Comprehensive Coefficient Table for Model 1",
+align = 'lrrrrr'
+)
+```
+
+### Question 3.2: Effect of Advertising Spend
+
+* **Null Hypothesis ($H_0: \beta_1 = 0$):**
+    * After controlling for all other variables in the model, advertising spend has no statistically significant effect on monthly sales.
+
+* **Alternative Hypothesis ($H_1: \beta_1 \neq 0$):**
+    * After controlling for all other variables, advertising spend has a statistically significant effect on monthly sales.
+
+```{r}
+ad_spend_row <- coef_table["Ad_Spend", ]
+
+t_statistic_ad_spend <- ad_spend_row["t value"]
+p_value_ad_spend <- ad_spend_row["Pr(>|t|)"]
+
+print(paste("Ad_Spend t-statistic:", round(t_statistic_ad_spend, 4)))
+print(paste("Ad_Spend p-value:", format(p_value_ad_spend, scientific = TRUE)))
+```
+
+* **Test Statistics:**
+    * **t-statistic:** 133.4355
+    * **p-value:** < 2.2e-16 (or essentially 0)
+
+\n
+* **Statistical Conclusion:** Since the p-value (approx. 0) is far less than the significance level of $\alpha = 0.05$, we reject the null hypothesis ($H_0$). There is overwhelming statistical evidence that advertising spend has a significant linear relationship with sales, even after accounting for all other factors.
+
+* **Business Meaning (Advertising Effectiveness):** This result provides a clear, data-driven justification for the marketing budget. It demonstrates that advertising expenditures are not just a cost center but a significant and positive driver of revenue. This finding directly addresses the CFO's concerns, confirming that marketing expenditures are generating statistically significant returns.
+
+### Question 3.3: Summary of Findings
+
+* **Statistically Significant Predictors:**
+    * Based on the coefficient table, **all** 13 predictors in the model are statistically significant. Their p-values are all well below 0.05.
+
+\n
+* **Non-Significant Predictors:**
+    * There are **no** non-significant predictors in this model at the 5% significance level.
+
+\n
+* **Business Interpretation:**
+    * The finding that every single variable is significant is powerful. It indicates that the analytics team has collected a highly relevant set of metrics, and every factor plays a role in explaining sales.
+    * While all factors matter, the **most impactful drivers** (those with the highest absolute t-statistics) appear to be **Website_Traffic** (t=260.4), **Ad_Spend** (t=133.4), **Inventory_Level** (t=-54.2), and the **Product_Type** dummies (t=-43.9 for Fashion, t=-30.2 for Home).
+    * This tells Tracy's team that website traffic and ad spend are exceptionally strong positive drivers, while inventory levels and product category differences are also critical factors in determining sales performance.
+
+---
+
+## PART 4
+
+### Question 4.1: Interpretation of Ad_Spend Coefficient
+
+```{r}
+coef_ad_spend <- coef_table["Ad_Spend", "Estimate"]
+cat("Coefficient Value:", coef_ad_spend)
+```
+
+* **Interpretation:** For every $1,000 increase in monthly digital advertising spend (a 1-unit increase in `Ad_Spend`), sales are predicted to **increase** by $2,481.90, holding all other variables constant.
+
+* **Business Implication:** This coefficient suggests a **Return on Ad Spend (ROAS) of approximately 2.48:1**. For every $1 spent on advertising, MarketPlace generates about $2.48 in sales revenue, which is a strong, positive return. This evidence provides a clear justification for the marketing budget and supports the case for increasing ad spend, as it appears to be a highly effective revenue driver. 
+    * **Recommendation:** The team should recommend increasing the ad spend budget, but with a caveat: this linear relationship may not hold indefinitely. The best approach is to increase spending incrementally while closely monitoring the ROAS to find the optimal investment level.
+
+### Question 4.2: Interpretation of Avg_Rating Coefficient
+
+```{r}
+coef_avg_rating <- coef_table["Avg_Rating", "Estimate"]
+cat("Coefficient Value:", coef_avg_rating)
+```
+
+* **Interpretation:** For every **one-point increase** in the average customer product rating (on its 1-5 scale), monthly sales are predicted to **increase** by $14,749.40, holding all other variables constant.
+
+* **Business Implication (Importance of Customer Satisfaction):** This result quantifies the immense value of customer satisfaction and product quality. It shows that a seemingly small improvement in customer ratings—which might be the difference between an average 3.5-star product and a 4.5-star product—can have a substantial impact on revenue.
+    * This provides a strong, data-driven business case for investing in initiatives aimed at improving product quality, enhancing customer service, and actively managing online reviews and reputation. It proves to the executive team that customer satisfaction is not just a "soft" metric but a powerful and direct financial lever.
+
+### Question 4.3: Interpretation of Season_Summer Coefficient
+
+```{r}
+coef_season_summer <- coef_table["Season_Summer", "Estimate"]
+cat("Coefficient Value:", coef_season_summer)
+```
+
+* **Interpretation:** Compared to **Winter** (the reference season), Summer sales are predicted to be **lower** by $30,335.40 per month, controlling for all other factors.
+
+* **Business Implication (Seasonal Strategy):** This quantifies a significant and costly seasonal slump. The model predicts that, even for the exact same product with the same marketing support, sales will be substantially lower in the summer.
+    * This insight is critical for seasonal strategy. It strongly suggests that MarketPlace should adjust inventory planning to avoid overstocking in the summer. 
+    * It also indicates that marketing campaigns should be tailored to boost demand during this slower period, perhaps through summer-specific promotions, different product features, or by shifting a portion of the ad budget to this timeframe to counter the slump.
+
+### Question 4.4: Interpretation of Product_Type_Fashion Coefficient
+
+```{r}
+coef_product_fashion <- coef_table["Product_Type_Fashion", "Estimate"]
+cat("Coefficient Value:", coef_product_fashion)
+```
+
+* **Interpretation:** Compared to **Electronics** (the reference category), Fashion products are predicted to have **lower** sales by $44,693.10 per month, holding everything else constant.
+
+* **Business Implication (Product Strategy):** This highlights a major structural challenge. The model shows that even if a Fashion product and an Electronics product had the **exact same** ad spend, website traffic, discount percentage, and customer rating, the Fashion product is **still** predicted to sell $44.69k less.
+    * This finding pinpoints that the underperformance is not just a simple marketing or pricing issue (as those are accounted for). It points to a more fundamental problem, such as a mismatch in product-market fit, lower baseline consumer demand, or a less effective sales conversion funnel for that category. It is recommended to have a "strategic review" to focus on this core underperformance, not just on tweaking the marketing levers we are already measuring.
+
+---
+
+## PART 5 
+
+### Question 5.1: Build Model 2 with Reduced Predictors 
+
+```{r}
+Model2 <- lm(Sales ~ Season_Spring + Season_Summer + Season_Fall  + Product_Type_Home +
+                            Product_Type_Fashion + 
+                            Ad_Spend + Website_Traffic + Avg_Rating, data = dataset)
+summary(Model2)
+
+coef_table <- summary(Model2)$coefficients
+kable(coef_table, 
+      digits = 3, 
+      caption = "Model 2: Regression Model of Monthly Sales with Reduced Predictors",
+      col.names = c("Estimate", "Std. Error", "t-value", "p-value"))
+```
+
+### Question 5.2: Compare Standard Error (SE)
+
+```{r}
+se_m1 <- summary(Model1)$sigma
+print(se_m1)
+
+se_m2 <- summary(Model2)$sigma
+print(se_m2)
+```
+
+* **Which model has lower SE?**
+    * **Model 1** has a substantially lower Standard Error ($24.31$) compared to Model 2 ($33.95$).
+
+\n
+* **Interpretation (What SE tells us):**
+    * The Standard Error of the regression (or Residual Standard Error) represents the **typical size of a prediction error**. It's the average distance that the observed sales values fall from the regression line.
+    * In business terms, Model 1's predictions are, on average, off by about **$24,310**. Model 2's predictions are, on average, off by about **$33,949**.
+    * The 40% increase in average prediction error for Model 2 indicates a **significant loss of accuracy**. A lower SE is better, as it means the model's forecasts are more precise and reliable for business planning.
+
+### Question 5.3: Compare Adjusted R-squared
+
+```{r}
+adj_r_sq_m1 <- summary(Model1)$adj.r.squared
+print(adj_r_sq_m1)
+
+adj_r_sq_m2 <- summary(Model2)$adj.r.squared
+print(adj_r_sq_m2)
+```
+
+* **Which model has higher Adjusted $R^2$?**
+    * **Model 1** has a higher Adjusted R-squared.
+
+\n
+* **Interpretation (What Adjusted $R^2$ tells us):**
+    * **Adjusted R-squared** measures the proportion of the variance in Sales that is explained by the model's predictors, but it crucially **penalizes the score for adding predictors that don't improve the model fit** significantly.
+    * Model 1 explains 96.31% of the variation in sales, while Model 2 (the simpler model) only explains 92.80%.
+    * The fact that the Adjusted $R^2$ dropped significantly for Model 2 confirms that the variables we removed were **not** useless. They were adding real, significant explanatory power to the model, which is why the more complex Model 1 is a better fit for the data.
+
+### Question 5.4: Model Recommendation and Justification
+
+* **Recommendation:** **Model 1** is the strongly recommended model for Tracy's team to use for business decisions.
+
+* **Justification:**
+    *  **Statistical Performance:** Model 1 is superior on both key metrics. Its **lower Standard Error** ($24.31k vs. $33.95k) translates to significantly more accurate and reliable sales forecasts. Its **higher Adjusted R-squared** (96.31% vs. 92.80%) confirms that the variables dropped in Model 2 were, in fact, statistically important and added real explanatory power. The performance drop in Model 2 is too significant to ignore for the sake of simplicity.
+    *  **Business Practicality & Completeness:** The variables excluded from Model 2 are all actionable business levers. Removing them from the model would make it "simpler" but also "useless" for many of its intended purposes. For example, without `Discount_Pct` in the model, the team cannot analyze the effectiveness of promotional pricing strategies.
+    *  **Strategic Decision-Making Needs:** The team's goal is not only to *predict* sales but also to *provide actionable insights for the $20 million budget allocation*. Model 1 is the only one that serves this dual purpose. It allows Tracy to quantify the ROAS for `Ad_Spend`, `Email_Campaigns`, and `Social_Media_Engagement` individually. The completeness of Model 1 is essential for this strategic analysis and far outweighs the minor parsimony of Model 2.
+
+---
+
+## PART 6 
+
+### Question 6.1: Calculate Point Prediction
+
+```{r}
+new_product_data <- data.frame(
+  Ad_Spend = 25,
+  Email_Campaigns = 10,
+  Website_Traffic = 150,
+  Avg_Rating = 4.5,
+  Discount_Pct = 15,
+  Competitor_Price_Index = 105,
+  Inventory_Level = 1000,
+  Social_Media_Engagement = 70,
+  # Set dummy variables according to Season = Fall and Product_Type = Home
+  Season_Spring = 0,         # Not Spring
+  Season_Summer = 0,     # Not Summer
+  Season_Fall = 1,       # Is Fall
+  Product_Type_Home = 1,       # Is Home
+  Product_Type_Fashion = 0        # Not Fashion
+)
+
+point_prediction <- predict(Model1, newdata = new_product_data)
+print(paste("Predicted Sales: $", round(point_prediction, 2), "thousand"))
+```
+
+**Finding:** The predicted monthly sales for this new product is $339,460.
+
+### Question 6.2: 95% Prediction Interval
+
+```{r}
+# 95% Prediction Interval for a single new product's sales
+prediction_interval <- predict(Model1, newdata = new_product_data, interval = "prediction", level = 0.95)
+print(prediction_interval)
+```
+
+* **Interpretation Statement:** We are 95% confident that the **actual sales for this single new product** in its first month will fall between **$291,730** and **$387,190**.
+
+* **Business Planning Explanation:**
+    * This interval is crucial for **tactical planning and risk assessment** for this *specific product launch*.
+    * The wide range ($291.7k to $387.2k) quantifies the uncertainty and risk for a *single* month.
+    * For business planning, the team should use the **lower bound ($291.7k)** as a conservative estimate or "worst-case scenario" for their initial revenue and cash flow projections. The **upper bound ($387.2k)** could be used to set optimistic sales targets or to ensure they have enough initial inventory to meet a high-demand scenario.
+
+### Question 6.3: 95% Confidence Interval for Mean Sales
+
+```{r}
+# 95% Confidence Interval for the average sales of products with these characteristics
+confidence_interval <- predict(Model1, newdata = new_product_data, interval = "confidence", level = 0.95)
+print(confidence_interval)
+```
+
+* **Interpretation Statement:** The 95% confidence interval for the **average sales** of *all* products with these characteristics is from **$336,900** to **$342,025**.
+
+* **Strategic Planning Explanation:**
+    * This interval is used for **high-level strategic planning and forecasting**. It doesn't predict one single month; it predicts the *long-term average* performance of this entire product profile.
+    * The interval is very narrow (only about $5.1k wide), which gives Tracy a highly reliable and precise estimate.
+    * For strategic planning, she can use this range to confidently forecast the revenue for an entire portfolio. For example, if MarketPlace plans to launch 20 similar products, she can reliably budget for an average sales figure between $336.9k and $342.0k *per product*. This is the number to use in long-term financial models to assess the overall profitability of this product strategy.
+
+### Question 6.4: Prediction vs. Confidence Interval
+
+* **Why is the prediction interval wider than the confidence interval?**
+    * The **Confidence Interval** (CI) is narrow because it only accounts for *one* source of uncertainty: our uncertainty about the **true average** sales (i.e., how well we've estimated the regression line).
+    * The **Prediction Interval** (PI) is much wider because it must account for *two* sources of uncertainty:
+        1.  The same uncertainty about the regression line (from the CI).
+        2.  The inherent, random, and unpredictable variability of any **single new observation** around that line (known as the irreducible error).
+    * In short, predicting an *average* is much safer than predicting a *single specific outcome*, so the PI's range must be wider to account for that extra individual-level risk.
+
+* **When should Tracy use the Prediction Interval?**
+    * **For: Tactical, individual-level decisions.**
+    * **Practical Business Example:** Tracy should use the PI ([$291.7k, $387.2k]) for planning the **specifics of this single product launch**. For example, she should use the lower bound ($291.7k) to set a conservative revenue budget for this *one product* or use the upper bound ($387.2k) to decide on the initial inventory order to avoid a stockout if it's a hit.
+
+* **When should Tracy use the Confidence Interval?**
+    * **For: Strategic, long-term average decisions.**
+    * **Practical Business Example:** Tracy should use the CI ([$336.9k, $342.0k]) for **high-level financial planning**. When the CFO asks, "What is the expected long-term profitability of this *type* of product strategy?" this is the number to use. It gives a very precise estimate of the *average revenue* she can expect from all future products that share these characteristics, which is perfect for building an annual budget or a long-term business case.
+
+---
+
+## PART 7
+
+### Question 7.1: State the hypotheses
+
+**Full Model (Model 1) Equation:**
+$Sales = \beta_0 + \beta_1 \text{Ad_Spend} + \beta_2 \text{Email_Campaigns} + \beta_3 \text{Website_Traffic} + \beta_4 \text{Avg_Rating} + ... + \beta_{13} \text{Product_Type_Fashion} + \epsilon$
+
+**Reduced Model (Model 3 - excludes the 3 marketing variables) Equation:**
+$Sales = \beta_0 + \beta_3 \text{Website_Traffic} + \beta_4 \text{Avg_Rating} + \beta_5 \text{Discount_Pct} + ... + \beta_{13} \text{Product_Type_Fashion} + \epsilon$
+
+**Statistical Hypotheses:**
+
+  * **Null Hypothesis ($H_0$):** $\beta_{\text{Ad_Spend}} = \beta_{\text{Email_Campaigns}} = \beta_{\text{Social_Media_Engagement}} = 0$ (i.e., $\beta_1 = \beta_2 = \beta_8 = 0$)
+  * **Alternative Hypothesis ($H_1$):** At least one of $\beta_{\text{Ad_Spend}}$, $\beta_{\text{Email_Campaigns}}$, or $\beta_{\text{Social_Media_Engagement}}$ is not equal to 0.
+
+**Business Interpretation:**
+
+  * **$H_0$:** After accounting for website traffic, ratings, pricing, inventory, season, and product type, the combined effect of Ad Spend, Email Campaigns, and Social Media Engagement does *not* significantly help explain sales. Essentially, these specific marketing activities, as a group, add no extra explanatory value.
+    
+  * $H_1$: At least one of these three marketing activities significantly adds to the explanation of sales, even when controlling for all other factors in the model. The marketing portfolio provides significant additional insight.
+
+### Question 7.2: Build Model 3 (Reduced Model)
+
+```{r}
+Model3_Reduced <- lm(Sales ~ Website_Traffic + Avg_Rating + Discount_Pct +
+                       Competitor_Price_Index + Inventory_Level + Season_Spring +
+                       Season_Summer + Season_Fall + Product_Type_Home +
+                       Product_Type_Fashion,
+                       data = dataset)
+
+summary_m3 <- summary(Model3_Reduced)
+r_sq_m3 <- summary_m3$r.squared
+sse_m3 <- sum(residuals(Model3_Reduced)^2)
+
+cat("R-squared for Model 3 (Reduced):", round(r_sq_m3, 4), "\n")
+cat("SSE for Model 3 (SSE_R):", round(sse_m3, 2), "\n")
+```
+
+### Question 7.3: Calculate the partial F-statistic
+
+```{r}
+partial_f_test_result <- anova(Model3_Reduced, Model1)
+print(partial_f_test_result)
+
+partial_F_stat <- partial_f_test_result$F[2]
+partial_p_value <- partial_f_test_result$`Pr(>F)`[2]
+
+cat("\nPartial F-statistic:", round(partial_F_stat, 4), "\n")
+cat("p-value:", format(partial_p_value, scientific = TRUE, digits=4), "\n")
+```
+
+### Question 7.4: Conclusion and Business Recommendation
+
+**Statistical Conclusion:** Since the p-value (essentially 0) is much smaller than the significance level $\alpha = 0.05$, we **reject the null hypothesis ($H_0$)**.
+
+**Business Recommendation to the CFO:**
+The partial F-test provides extremely strong statistical evidence (F = 5977.8, p < 0.001) that the group of marketing variables (Ad Spend, Email Campaigns, Social Media Engagement) *jointly* adds significant explanatory power to the sales model, even after considering all other factors. This means these marketing activities, taken together, are crucial drivers of sales performance. The recommendation is to **maintain or potentially increase investment** in these areas, as they are demonstrably linked to revenue. Reducing this budget would likely lead to a significant decrease in sales, according to the model.
+
+---
+
+## PART 8
+
+### Question 8.1: Define Full and Reduced Models & Report SSE
+
+**Full Model (Model 1):** Includes all 13 predictors.
+
+**Reduced Model (Model 3):** Excludes the 3 marketing variables (Ad_Spend, Email_Campaigns, Social_Media_Engagement). This is the same reduced model used in the Part 7 partial F-test.
+
+```{r}
+sse_full_model1 <- sum(residuals(Model1)^2)
+cat("SSE for the Full Model (SSE_F - Model 1):", round(sse_full_model1, 2))
+
+sse_reduced_model3 <- sum(residuals(Model3_Reduced)^2)
+cat("SSE for the Reduced Model (SSE_R - Model 3):", round(sse_reduced_model3, 2))
+```
+
+### Question 8.2: Calculate Partial $R^2$
+
+```{r}
+partial_r_squared_marketing <- (sse_reduced_model3 - sse_full_model1) / sse_reduced_model3
+
+cat("Partial R^2 =",
+    paste0("(", round(sse_reduced_model3, 2), " - ", round(sse_full_model1, 2), ") / ",
+           round(sse_reduced_model3, 2)))
+cat("Coefficient of Partial Determination for Marketing Variables:", round(partial_r_squared_marketing, 4))
+```
+
+### Question 8.3: Interpret the result
+
+**Interpretation:** After controlling for all other variables in the model (including website traffic, average rating, pricing, inventory, season, and product type), the three main marketing controllable variables (Ad Spend, Email Campaigns, and Social Media Engagement) collectively explain **83.34%** of the sales variance that those other factors failed to account for. This extremely high value demonstrates that our marketing activities provide substantial and unique insight into sales performance. They are not redundant with other metrics.
+
+**Business Decision-Making Implication:** This is a very high value and indicates that these three marketing activities provide substantial and unique explanatory power *beyond* what the other operational and market factors capture. Removing them would significantly weaken the model's ability to explain sales variations. Therefore, these marketing variables are critically important, provide unique insights, and should **absolutely remain** in the model used for analysis and decision-making regarding budget allocation and sales forecasting. They represent key levers the company can pull to influence revenue.
+
+---
+
+## PART 9 (A: Seasonal Analysis)
+
+### Question 9.1: Rank all four seasons
+
+```{r}
+coefs_model1 <- summary(Model1)$coefficients
+
+season_coeffs <- c(
+  Winter = 0, # Reference category explicitly set to 0
+  Spring = coefs_model1["Season_Spring", "Estimate"],
+  Summer = coefs_model1["Season_Summer", "Estimate"],
+  Fall = coefs_model1["Season_Fall", "Estimate"]
+)
+
+season_ranking <- sort(season_coeffs, decreasing = TRUE)
+
+season_table <- data.frame(
+  Season = names(season_ranking),
+  Expected_Sales_Adjustment_vs_Winter_Thousand_USD = unname(season_ranking),
+  row.names = NULL
+)
+
+kable(season_table,
+      digits = 2,
+      caption = "Ranking of Seasons by Expected Sales Impact (Relative to Winter)",
+      col.names = c("Season", "Sales Adjustment vs. Winter ($k)"),
+      align = 'lr')
+```
+
+**Interpretation:**
+Based on the coefficients of Model 1, holding all other factors constant:
+
+   1.  **Winter** has the highest expected sales (as it's the reference category with a 0 adjustment).
+   2.  **Spring** and **Fall** have similar, lower expected sales compared to Winter (approx. $19.8k lower).
+   3.  **Summer** has the lowest expected sales (approx. $30.3k lower than Winter).
+
+### Question 9.2: Calculate Winter vs. Summer difference
+
+```{r}
+
+winter_summer_diff <- season_coeffs["Winter"] - season_coeffs["Summer"]
+abs(winter_summer_diff)
+
+summer_p_value <- coefs_model1["Season_Summer", "Pr(>|t|)"]
+summer_p_value
+```
+
+**Business Implication:**
+The model confirms a significant seasonal slump in Summer compared to the peak Winter season. On average, Summer sales are expected to be about **$30.34k lower** than Winter sales, even when controlling for marketing, product type, and other factors. This statistically significant difference is crucial for **inventory planning** (avoiding Summer overstock) and **marketing strategy** (potentially shifting budget or using targeted promotions to mitigate the Summer downturn).
+
+
+### Question 9.3: Test Spring vs. Fall
+
+```{r}
+# H0: Season_Spring - Season_Fall = 0
+spring_fall_test <- linearHypothesis(Model1, "Season_Spring - Season_Fall = 0")
+spring_fall_p_value <- spring_fall_test$`Pr(>F)`[2]
+spring_fall_p_value
+```
+
+**Business Implication:**
+Although the point estimates differ slightly (-19.77k for Spring vs. -19.89k for Fall), the difference is **not statistically significant** (p = 0.916). For practical business purposes, MarketPlace can treat Spring and Fall as having a similar impact on sales compared to Winter. This could simplify seasonal planning, allowing for similar inventory levels and marketing approaches during these two "shoulder" seasons.
+
+## PART 9 (B: Product Type Analysis)
+
+### Question 9.4: Rank all three product types
+
+```{r}
+product_coeffs <- c(
+  Electronics = 0, # Reference category explicitly set to 0
+  Home = coefs_model1["Product_Type_Home", "Estimate"],
+  Fashion = coefs_model1["Product_Type_Fashion", "Estimate"]
+)
+
+product_ranking <- sort(product_coeffs, decreasing = TRUE)
+
+product_table <- data.frame(
+  Product_Type = names(product_ranking),
+  Sales_Adjustment_vs_Electronics_Thousand_USD = unname(product_ranking),
+  row.names = NULL
+)
+
+kable(product_table,
+      digits = 2,
+      caption = "Ranking of Product Types by Expected Sales Impact (Relative to Electronics)",
+      col.names = c("Product Type", "Sales Adjustment vs. Electronics ($k)"),
+      align = 'lr')
+```
+
+**Interpretation:**
+Based on Model 1 coefficients, holding all other factors constant:
+
+   1.  **Electronics** has the highest expected sales (reference category).
+   2.  **Home** products have significantly lower expected sales than Electronics (approx. $29.72k less).
+   3.  **Fashion** products have the lowest expected sales, significantly lower than both Electronics (approx. $44.69k less) and Home goods.
+
+### Question 9.5: Home vs. Fashion comparison
+
+```{r}
+home_fashion_diff <- product_coeffs["Home"] - product_coeffs["Fashion"]
+home_fashion_diff
+
+# H0: Product_Type_Home - Product_Type_Fashion = 0
+home_fashion_test <- linearHypothesis(Model1, "Product_Type_Home - Product_Type_Fashion = 0")
+home_fashion_p_value <- home_fashion_test$`Pr(>F)`[2]
+home_fashion_p_value
+```
+
+**Business Implication:**
+Home products are expected to generate significantly more sales (approx. **$14.98k more per month**) than Fashion products, even after controlling for marketing spend, seasonality, ratings, etc. This difference is statistically significant (p < 0.001).
+
+**Should MarketPlace invest more in one category over the other?**
+Not necessarily based *solely* on this coefficient. While Home goods generate more revenue *on average* for the *same* level of other inputs, this doesn't automatically mean they are more *profitable* or have higher *growth potential*. The Fashion category might have higher margins, faster inventory turnover, or appeal to a different, valuable customer segment.
+
+**Recommendation:** MarketPlace should investigate *why* Fashion underperforms relative to Home goods in terms of sales volume generated per unit of input (like ad spend or traffic). Is it product assortment, pricing strategy within the category, conversion rates on the website for fashion items, or overall market demand? Simply shifting investment *away* from Fashion might be premature without understanding the root cause and the category's overall contribution to profitability and customer acquisition. A deeper dive into the Fashion category's specific performance metrics is warranted.
+

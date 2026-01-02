@@ -1,121 +1,103 @@
-# E-Commerce Sales Optimization  
-### Multiple Regression Analysis for Marketing Decision-Making
+# MarketPlace E-Commerce Sales Optimization  
+### A Two-Part Regression & Statistical Modeling Project
 
-This project analyzes e-commerce sales performance using multiple regression modeling to identify key drivers of revenue and support data-driven marketing budget allocation decisions.
+This repository presents a **two-part analytics project series** built on the same real-world e-commerce dataset.  
+Together, the two parts demonstrate a complete progression from **core regression modeling and business interpretation** to a **more advanced statistical continuation**, all framed around a consistent business narrative.
 
-The analysis is based on a realistic business case involving a large online retailer (“MarketPlace”) and focuses on model building, interpretation, prediction, and strategic insights for executive stakeholders.
-
----
-
-## Project Overview
-
-**Objective:**  
-Build and interpret multiple regression models that explain monthly sales performance and provide actionable insights for marketing and product strategy.
-
-**Key questions addressed:**
-- What factors most strongly drive e-commerce sales?
-- How effective is digital advertising spend?
-- Do seasonality and product categories matter?
-- Which regression model is best for prediction and decision-making?
-- What are the expected sales for a new product launch?
+The work is designed to mirror how analytics projects evolve in practice—starting with foundational modeling for decision support and extending into deeper statistical evaluation using the same data.
 
 ---
 
-## Dataset
+## Business Premise
 
-- **File:** `MarketPlace_Sales_Data.csv`
-- **Observations:** 3,600 monthly records
-- **Time Span:** 18 months
-- **Scope:** 200 product subcategories
+MarketPlace is a fast-growing online retailer operating across multiple product categories. Leadership wants to understand:
 
-**Variables include:**
-- Sales (response variable)
-- Marketing inputs (ad spend, email campaigns, social media engagement)
-- Customer behavior (ratings, website traffic)
-- Pricing and inventory factors
-- Season and product type (categorical variables)
+- What drives monthly sales performance
+- How effective marketing investments truly are
+- How seasonality and product mix influence revenue
+- How confidently sales can be forecasted for planning and budgeting
+
+The dataset includes sales, marketing activity, website traffic, pricing competitiveness, customer ratings, inventory levels, social engagement, and categorical variables for season and product type.
 
 ---
 
-## Methodology
+## Project Structure (Two-Part Series)
 
-This project applies core topics from intermediate and advanced regression analysis, including:
+### Part 1 — Sales Drivers & Regression Foundations
 
-- Dummy variable creation and interpretation  
-- Global F-tests and individual t-tests  
-- Model selection using Standard Error and Adjusted R²  
-- Prediction intervals vs. confidence intervals  
-- Partial F-tests for joint significance  
-- Coefficient of partial determination  
-- Business-focused interpretation of regression outputs  
+**Focus:**  
+Identify key drivers of e-commerce sales using multiple regression and translate statistical results into executive-ready insights.
 
-All analysis is performed in **R** using **R Markdown**.
+**What this part demonstrates:**
+- Dummy variable creation and interpretation
+- Full regression model construction
+- Global and individual hypothesis testing
+- Model comparison and selection
+- Business interpretation of coefficients
+- Sales prediction with confidence and prediction intervals
+- Evaluation of marketing levers using partial tests
 
----
+**Artifacts included:**
+- R Markdown analysis (Part 1 R code)
+- Rendered HTML report (interactive)
+- Business executive summary (PDF)
 
-## Key Deliverables
-
-### Problem Statement
-The full business case and analytical questions are documented in:  
-`problem_statement.md`
-
----
-
-### Interactive Analysis (HTML)
-The best way to explore the complete analysis, including regression outputs, tables, and interpretations.
-
-GitHub Pages link:  
-https://ritikagarg0903.github.io/ecommerce-sales-optimization/Ecommerce_Sales_Optimization_RMD.html
+**HTML Report:**  
+https://ritikagarg0903.github.io/ecommerce-sales-optimization/part_1_sales_drivers_regression/Ecommerce_Sales_Optimization_RMD.html
 
 ---
 
-### Executive Business Report (PDF)
-A concise, stakeholder-ready report summarizing key findings, insights, and recommendations.
+### Part 2 — Advanced Statistical Modeling & Inference
 
-File:  
-`Business_Report.pdf`
+**Focus:**  
+Extend the initial regression analysis with more advanced statistical techniques using the same dataset and business context.
+
+**What this part demonstrates:**
+- Deeper statistical inference and model evaluation
+- Advanced hypothesis testing and diagnostics
+- Continuation of the original business narrative
+- Stronger emphasis on statistical rigor and interpretation
+
+**Artifacts included:**
+- R Markdown analysis (Part 2 R code)
+- Rendered HTML report (interactive)
+- Business-focused executive summary (PDF)
+
+**HTML Report:**  
+https://ritikagarg0903.github.io/ecommerce-sales-optimization/part_2_advanced_modeling_and_inference/Advanced_Modeling_And_Inference_RMD.html
 
 ---
 
-### Reproducible Analysis Code
-The full R Markdown file containing all data preparation, modeling, and analysis steps.
+## How to Explore This Repository
 
-File:  
-`Ecommerce_Sales_Optimization.Rmd`
+- **Start with the HTML reports** for each part to see the full analysis and results.
+- Review the **executive summary PDFs** for concise, stakeholder-ready insights.
+- Explore the **R Markdown files** to see the full analytical workflow and code.
 
 ---
 
 ## Tools & Technologies
 
-- R / RStudio  
-- R Markdown  
-- Multiple Linear Regression  
-- GitHub Pages  
+- R / RStudio
+- R Markdown
+- Multiple Linear Regression
+- Advanced Statistical Inference
+- GitHub Pages
 
 ---
 
-## Key Insights (High Level)
+## Why This Project Matters
 
-- Digital advertising spend has a statistically significant impact on sales
-- Website traffic and customer ratings are strong predictors of revenue
-- Seasonality and product type meaningfully influence sales performance
-- A simpler regression model performs nearly as well as a full model
-- Prediction intervals provide critical guidance for operational planning
-
-Detailed results and interpretations are available in the HTML and PDF reports.
-
----
-
-## Intended Audience
-
-- Data Analyst and Business Analyst hiring managers
-- Business stakeholders interested in data-driven decision-making
-- Students reviewing applied regression work
+This project series demonstrates:
+- How analytics work progresses beyond a single model
+- Strong linkage between statistical rigor and business decision-making
+- Clear communication of technical results to non-technical stakeholders
+- Reproducible, well-organized analytical workflows
 
 ---
 
 ## Notes
 
-- Completed as part of an Intermediate Statistics / Regression Analysis course
-- AI tools were used only for formatting and writing support, not for analysis
-- All interpretations and conclusions are my own
+- Both parts use the same dataset to show continuity and analytical depth.
+- AI tools were used for writing and formatting support only.
+- All statistical modeling decisions and interpretations are my own.

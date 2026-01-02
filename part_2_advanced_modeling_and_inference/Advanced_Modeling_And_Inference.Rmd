@@ -1,0 +1,302 @@
+---
+title: "Appendix"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+# install.packages(c("tidyverse", "lmtest"))
+```
+
+```{r, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(lmtest)
+```
+
+```{r, message=FALSE, warning=FALSE}
+sales_data <- read_csv("MarketPlace_Sales_Data.csv")
+
+summary(sales_data)
+```
+
+```{r}
+sales_data <- sales_data %>%
+  mutate(
+    Season = as.factor(Season),
+    Product_Type = as.factor(Product_Type),
+    log_Sales = log(Sales),
+    log_Ad_Spend = log(Ad_Spend) 
+  )
+```
+
+## Business Objective 1: Understanding Non-Linear Relationships
+
+```{r, message=FALSE, warning=FALSE}
+ggplot(sales_data, aes(x = Ad_Spend, y = Sales)) +
+  geom_point(alpha = 0.3) +
+  geom_smooth(method = "lm", col = "red", se = FALSE) + # Linear line
+  geom_smooth(method = "loess", col = "blue", se = FALSE) + # Non-linear (Loess) curve
+  labs(title = "Sales vs. Ad Spend (in thousands of dollars)",
+       subtitle = "Red = Linear Fit, Blue = Non-Linear (Loess) Fit") +
+  theme_bw()
+```
+
+**Visual Analysis:**
+
+Upon visual inspection, the relationship between `Ad_Spend` and `Sales` appears **predominantly linear**, particularly within the primary operating range of $0K to $100K, which contains the vast majority of our observations. In this dense region, the linear fit (Red) and non-linear LOESS fit (Blue) are virtually indistinguishable.
+
+While the trend lines begin to diverge slightly when Ad Spend exceeds $100K, this upper range is characterized by data sparsity (very few data points) and high variance. Therefore, the visual evidence for "diminishing returns" is weak; the slight curvature at the tail could be an artifact of noise rather than a definitive non-linear pattern.
+
+```{r}
+model_A_linear <- lm(Sales ~ Ad_Spend, data = sales_data)
+summary(model_A_linear)
+
+model_B_linlog <- lm(Sales ~ log(Ad_Spend), data = sales_data)
+summary(model_B_linlog)
+
+model_C_quad <- lm(Sales ~ Ad_Spend + I(Ad_Spend^2), data = sales_data)
+summary(model_C_quad)
+```
+
+**Statistical Analysis:**
+
+To rigorously test the CFO's hypothesis of diminishing returns, we developed and compared three functional forms:
+
+1.  **Model A (Linear):** `Sales ~ Ad_Spend`
+2.  **Model B (Log-Linear):** `Sales ~ log(Ad_Spend)`
+3.  **Model C (Quadratic):** `Sales ~ Ad_Spend + I(Ad_Spend^2)`
+
+We **reject** the non-linear models. The Linear Model (Model A) is the superior choice based on model fit statistics and visual exploration. This indicates that within our current operating range, there is no statistical evidence of diminishing returns.
+
+**Optimal Point Analysis:**
+
+Because the relationship is linear and not curved, **there is no single "optimal point" of maximum efficiency** within the observed data range. We have not yet reached a saturation point where spending more becomes wasteful. Based on the plot, we should increase Ad Spend slowly beyond operating range (>$100K) to ensure linearity holds as spending is increased.
+
+**Business Recommendation**
+
+*Recommendation: Maintain or Increase Advertising Spend*
+
+Based on this standalone analysis, we should not decrease advertising spend out of a fear of diminishing returns. The data shows a consistent, positive linear relationship between Ad Spend and Sales. Therefore, the current strategy is not demonstrably inefficient.
+
+## Business Objective 2: Interaction Effects and Strategic Timing
+
+```{r}
+# Main model with all predictor variables
+model_main <- lm(Sales ~ Ad_Spend + Email_Campaigns + Website_Traffic +
+                  Avg_Rating + Discount_Pct + Competitor_Price_Index +
+                  Inventory_Level + Social_Media_Engagement +
+                  Season + Product_Type,
+                  data = sales_data)
+
+summary(model_main)
+```
+
+### Hypothesis Development
+
+To address the CMO's strategic questions, we must investigate **interaction effects**.
+
+#### Hypothesis 1: Advertising Efficiency by Season
+* **Formal Hypothesis:** There is a positive interaction between `Ad_Spend` and `Season`. Specifically, the marginal increase in Sales per dollar of Ad Spend is significantly higher in Winter than in Summer.
+* **Business Rationale:**
+    * **Consumer Intent:** The Winter season coincides with major gifting holidays (Thanksgiving, Christmas). Consumers in this period have higher "purchase intent".
+    * **Conversion Rates:** In Summer, consumers are often on vacation or outdoors, where advertising may generate awareness but fewer immediate conversions. In Winter, the urgency of holiday deadlines acts as a catalyst, making every advertising dollar more effective.
+
+#### Hypothesis 2: Sensitivity to Ratings by Product Type
+* **Formal Hypothesis:** There is a positive interaction between `Avg_Rating` and `Product_Type`. We hypothesize that customer ratings are a stronger driver of Sales for Fashion products compared to Electronics.
+* **Business Rationale:**
+    * **Subjectivity & Fit:** Electronics often have objective specifications (RAM, storage, screen size) that allow consumers to judge value without social proof. Fashion is highly subjective and faces the "fit uncertainty" problem.
+    * **Risk Mitigation:** Online shoppers cannot try on clothes. They rely heavily on reviews to determine if an item "runs true to size" or if the fabric quality matches the photo. Therefore, a high rating (social validation) reduces the purchase risk much more significantly for a Fashion item than for a standardized Electronic commodity.
+
+#### Formalized Hypothesis
+
+**Hypothesis 1:**
+
+  * Null Hypothesis (H0): The effect of Ad_Spend on Sales is the same across all seasons.
+  * Alternative Hypothesis (Ha): The effect of Ad_Spend on Sales is different in at least one season (specifically, we expect it to be higher in Winter).
+
+**Hypothesis 2:**
+
+  * Null Hypothesis (H0): The effect of Avg_Rating on Sales is the same for all Product_Type categories.
+  * Alternative Hypothesis (Ha): The effect of Avg_Rating on Sales is stronger for Fashion products than for Electronics.
+  
+
+```{r}
+model_interactions <- lm(Sales ~ Email_Campaigns + Website_Traffic + 
+                        Discount_Pct + Competitor_Price_Index + 
+                        Inventory_Level + Social_Media_Engagement +
+                        (Ad_Spend * Season) +        # Interaction 1
+                        (Avg_Rating * Product_Type), # Interaction 2
+                      data = sales_data)
+
+summary(model_interactions)
+
+```
+
+```{r}
+# Perform ANOVA test for model comparison
+anova_test <- anova(model_main, model_interactions)
+print(anova_test)
+
+summary(model_main)$adj.r.squared
+summary(model_interactions)$adj.r.squared
+```
+
+### Testing Conditional Relationships
+
+To test the CMO's hypotheses, we extended our regression model to include interaction terms:
+
+* **Base Model:** `Sales ~ Ad_Spend + Avg_Rating + [Controls]`
+* **Interaction Model:** Added `Ad_Spend * Season` and `Avg_Rating * Product_Type`.
+
+**Interpretation:**
+The high p-values indicate that we cannot reject the null hypothesis. There is **no statistical evidence** that advertising effectiveness changes based on the season, nor that customer ratings impact sales differently across product categories.
+
+### Quantifying the Differences
+
+**Summary of Effects:**
+
+| Interaction Tested | Hypothesis | Statistical Result | Conclusion |
+| :--- | :--- | :--- | :--- |
+| **Ads × Winter** | Ads work better in Winter | **Not Significant** (p=0.62) | Winter ads are **equally** effective as other seasons. |
+| **Ratings × Fashion** | Reviews matter more for Clothes | **Not Significant** (p=0.21) | Ratings have a **consistent** impact across all categories. |
+
+**Business Recommendation:**
+While the interaction terms between Ad_Spend × Season and Avg_Rating × Product_Type were not statistically significant, this finding itself is important for strategic planning. It suggests that advertising effectiveness is relatively consistent across seasons, and customer ratings impact sales similarly across product categories. This challenges prior assumptions from the CMO and implies that a uniform approach to ad allocation and review strategy may be appropriate unless future data indicate otherwise. However, MarketPlace may want to revisit this analysis with more granular seasonal data or different product groupings to reassess these patterns.
+
+
+## Business Objective 3: Addressing Data Quality and Model Reliability
+
+### Part A: Multicollinearity Assessment
+
+```{r}
+vif_results <- car::vif(model_main)
+
+print(vif_results)
+```
+
+**Interpretation:** All VIF scores are extremely low (all are ~1.0). This indicates that **multicollinearity is not a problem** in our main model. We will proceed with the full model, as removing variables at this stage would offer no statistical benefit and could potentially introduce omitted variable bias.
+
+### Part B: Heteroscedasticity Assessment
+
+```{r}
+bp_test <- lmtest::bptest(model_main)
+print(bp_test)
+
+
+plot(model_main, which = 3)
+```
+
+* **Statistical Test (Breusch-Pagan):** Since the p-value is less than 0.05, we **reject the null hypothesis** of homoscedasticity. There is statistically significant evidence that the variance of our errors is not constant.
+
+* **Graphical Inspection:** The "Scale-Location" plot (Residuals vs Fitted) shows a slight pattern where the spread of standardized residuals shifts across the range of fitted values.
+
+To fix the issue without altering our model specification, we calculated Heteroscedasticity-Consistent (Robust) Standard Errors (specifically using the HC1 "sandwich" estimator).
+
+```{r}
+library(sandwich)
+
+robust_se_model <- coeftest(model_main, vcov = vcovHC(model_main, type = "HC1"))
+print(robust_se_model)
+```
+
+```{r}
+original_summary <- summary(model_main)$coefficients
+robust_summary <- robust_se_model
+
+# Create the comparison data frame
+se_comparison <- data.frame(
+  Variable = rownames(original_summary),
+  Original_Std_Error = original_summary[, "Std. Error"],
+  Robust_Std_Error = robust_summary[, "Std. Error"],
+  Original_P_Value = original_summary[, "Pr(>|t|)"],
+  Robust_P_Value = robust_summary[, "Pr(>|t|)"]
+)
+print(se_comparison)
+```
+
+**Conclusion:**
+After applying the remedy, we compared the Robust Standard Errors to the Original OLS errors. While the standard errors shifted slightly, **the statistical significance of our predictors did not change.**
+
+All variables that were significant in the original model remain highly significant, and insignificant variables remain insignificant. This confirms that our business conclusions are **robust** and safe to use for decision-making, despite the presence of mild heteroscedasticity.
+
+### Part C: Autocorrelation Assessment
+
+```{r}
+# Perform Durbin-Watson Test for Autocorrelation
+dw_test <- lmtest::dwtest(model_main)
+
+print(dw_test)
+```
+
+**Test Statistic:** The DW statistic ranges from 0 to 4, where a value of **2.0** indicates zero autocorrelation. Our model produced a statistic of **1.9492**.
+**Significance:** The p-value is **0.057**, which is greater than the standard significance level ($\alpha = 0.05$).
+
+**Conclusion:** We **fail to reject the null hypothesis**. The DW statistic is extremely close to the ideal value of 2.0. There is **no statistically significant evidence** of autocorrelation in the residuals. While the p-value is borderline (close to 0.05), the statistic is very close to 2.0 (the ideal value indicating zero autocorrelation). Therefore, we conclude that while there may be a weak temporal signal, there is no statistically significant evidence of serious autocorrelation that would invalidate the model.
+
+**Business Context:**
+
+Even though our statistical test passed, it was right for the CDO to be concerned. In a retail business context, autocorrelation is plausible due to:
+
+* **Marketing "Carryover" Effects:** An advertising campaign in late January might drive brand awareness that results in sales in early February.
+* **Inventory Constraints:** A stockout in month $t$ could artificially depress sales, leading to pent-up demand and a spike in month $t+1$.
+
+### Final Audit Summary for the CDO
+We have successfully audited the model against all three concerns:
+
+1.  **Multicollinearity:** Ruled out (VIF ~ 1.0).
+2.  **Heteroscedasticity:** Detected, but successfully corrected using Robust Standard Errors with no change to business conclusions.
+3.  **Autocorrelation:** Ruled out (DW Stat ~ 1.95).
+
+Thus, the model is statistically sound and safe for strategic decision-making.
+
+## Business Objective 4: Alternative Model Specifications
+
+```{r}
+sales_data <- sales_data %>%
+  mutate(log_Website_Traffic = log(Website_Traffic))
+
+# Model 1: Linear-Linear (model_main)
+summary(model_main)
+```
+
+```{r}
+# Model 2: Log-Linear Model
+model_log_linear <- lm(log_Sales ~ Ad_Spend + Email_Campaigns + Website_Traffic +
+                         Avg_Rating + Discount_Pct + Competitor_Price_Index +
+                         Inventory_Level + Social_Media_Engagement +
+                         Season + Product_Type,
+                       data = sales_data)
+summary(model_log_linear)
+```
+
+
+```{r}
+# Model 3: Log-Log Model
+model_log_log <- lm(log_Sales ~ log_Ad_Spend + Email_Campaigns + log_Website_Traffic +
+                      Avg_Rating + Discount_Pct + Competitor_Price_Index +
+                      Inventory_Level + Social_Media_Engagement +
+                      Season + Product_Type,
+                    data = sales_data)
+summary(model_log_log)
+```
+
+```{r}
+model_comparison <- data.frame(
+  Model = c("1. Linear-Linear (model_main)", "2. Log-Linear", "3. Log-Log"),
+  Adjusted_R_Squared = c(
+    summary(model_main)$adj.r.squared,
+    summary(model_log_linear)$adj.r.squared,
+    summary(model_log_log)$adj.r.squared
+  )
+)
+
+print(model_comparison)
+```
+
+Based on the CEO's request and standard economic modeling practices, we considered transforming the following variables:
+
+1.  **Sales (Dependent Variable):** Sales data is often right-skewed (many small values, few massive ones). Taking the log (`log_Sales`) can normalize the residuals and helps us model **percentage growth** rather than absolute dollar growth.
+2.  **Ad_Spend & Website_Traffic (Predictors):** These are "scale" variables. A log transformation (`log_Ad_Spend`) allows us to test the idea that a 1% increase in spend leads to a certain percentage increase in sales, rather than a fixed dollar amount.
+
+**Analysis & Recommendation:**
+
+The **Linear Model (Model 1)** is superior. It explains **96.3%** of the variation in sales, whereas both log-transformed models drop to **89.3%**. This confirms our earlier finding in Objective 1: the relationship between our predictors and sales is fundamentally linear, not multiplicative or curved. Forcing a log transformation actually degrades the model's performance.
